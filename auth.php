@@ -1,5 +1,8 @@
 <?php
 session_start();
+date_default_timezone_set('Asia/Manila');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
 
 require_once __DIR__ . '/mail_config.php';
 require_once __DIR__ . '/db.php';
@@ -331,6 +334,7 @@ function update_own_profile(int $id, string $name, string $username, ?string $pa
 
 function create_session(array $user): void
 {
+    session_regenerate_id(true);
     $_SESSION['user'] = [
         'id'     => $user['id'] ?? null,
         'name'   => $user['name'],

@@ -13,7 +13,7 @@ $todaySales = array_sum(array_column(array_values($todayTx), 'total'));
 $todayCount = count($todayTx);
 
 // Low stock
-$lowStockProducts = array_values(array_filter($products, fn($p) => empty($p['archived']) && $p['stock'] < $p['threshold']));
+$lowStockProducts = array_values(array_filter($products, fn($p) => empty($p['archived']) && $p['stock'] > 0 && $p['stock'] < $p['threshold']));
 usort($lowStockProducts, fn($a, $b) => $a['stock'] - $b['stock']);
 $lowStockCount = count($lowStockProducts);
 $outOfStock = count(array_filter($products, fn($p) => empty($p['archived']) && $p['stock'] == 0));
@@ -370,8 +370,8 @@ body { font-family: 'Poppins', sans-serif; background: #f1f5f9; color: #1e293b; 
 
         <a href="inventory.php">
             <i class="bi bi-boxes"></i> Inventory
-            <?php if ($lowStockCount > 0): ?>
-                <span class="badge-count"><?= $lowStockCount ?></span>
+            <?php if ($lowStockCount + $outOfStock > 0): ?>
+                <span class="badge-count"><?= $lowStockCount + $outOfStock ?></span>
             <?php endif; ?>
         </a>
 

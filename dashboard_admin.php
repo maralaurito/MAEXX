@@ -8,7 +8,7 @@ $transactions = load_transactions();
 
 // Summary counts
 $totalProducts = count(array_filter($products, fn($p) => empty($p['archived'])));
-$lowStockItems = count(array_filter($products, fn($p) => empty($p['archived']) && $p['stock'] < $p['threshold']));
+$lowStockItems = count(array_filter($products, fn($p) => empty($p['archived']) && $p['stock'] > 0 && $p['stock'] < $p['threshold']));
 $outOfStock    = count(array_filter($products, fn($p) => empty($p['archived']) && $p['stock'] == 0));
 
 // Monthly sales
@@ -24,7 +24,7 @@ foreach ($transactions as $tx) {
 }
 
 // Low stock products
-$lowStockProducts = array_values(array_filter($products, fn($p) => empty($p['archived']) && $p['stock'] < $p['threshold']));
+$lowStockProducts = array_values(array_filter($products, fn($p) => empty($p['archived']) && $p['stock'] > 0 && $p['stock'] < $p['threshold']));
 usort($lowStockProducts, fn($a, $b) => $a['stock'] - $b['stock']);
 $lowStockProducts = array_slice($lowStockProducts, 0, 5);
 ?>
@@ -444,8 +444,8 @@ body { font-family: 'Poppins', sans-serif; background: #f1f5f9; color: #1e293b; 
 
         <a href="inventory.php">
             <i class="bi bi-boxes"></i> Inventory
-            <?php if ($lowStockItems > 0): ?>
-                <span class="badge-count"><?= $lowStockItems ?></span>
+            <?php if ($lowStockItems + $outOfStock > 0): ?>
+                <span class="badge-count"><?= $lowStockItems + $outOfStock ?></span>
             <?php endif; ?>
         </a>
 
