@@ -1,5 +1,4 @@
 <?php
-header('Cache-Control: no-cache, no-store, must-revalidate');
 require 'auth.php';
 require 'print_template.php';
 require 'notifications.php';
@@ -36,6 +35,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ? ($isIn ? 'Stock IN' : 'Stock OUT') . " recorded: {$v['quantity']} " . ($v['product']['unit'] ?? 'pcs') . " of {$v['product']['name']}."
                     : $result['message'],
                 $result['success'] ? 'success' : 'danger');
+            if ($result['success']) {
+                header('Location: inventory.php?highlight=' . urlencode($v['product']['name'])); exit;
+            }
         }
     }
 
@@ -71,7 +73,7 @@ if (function_exists('load_stock_logs')) {
 } elseif (file_exists('data/stock_logs.json')) {
     $logs = json_decode(file_get_contents('data/stock_logs.json'), true) ?: [];
 }
-$recentLogs = array_reverse($logs);
+$recentLogs = array_slice(array_reverse($logs), 0, 50);
 
 $dashboardLink = $isAdmin ? 'dashboard_admin.php' : 'dashboard_inventory.php';
 ?>

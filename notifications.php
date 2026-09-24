@@ -22,7 +22,7 @@ function maexx_get_notifications(): array
             'title'     => htmlspecialchars($p['name']),
             'desc'      => 'Out of stock — needs immediate restock',
             'time'      => 'Stock: 0 ' . htmlspecialchars($p['unit'] ?? 'pcs'),
-            'link'      => 'inventory.php',
+            'link'      => 'inventory.php?highlight=' . urlencode($p['name']),
         ];
     }
 
@@ -34,13 +34,13 @@ function maexx_get_notifications(): array
             'title'     => htmlspecialchars($p['name']),
             'desc'      => 'Low stock — below minimum level (' . intval($p['threshold']) . ')',
             'time'      => 'Stock: ' . intval($p['stock']) . ' ' . htmlspecialchars($p['unit'] ?? 'pcs'),
-            'link'      => 'inventory.php',
+            'link'      => 'inventory.php?highlight=' . urlencode($p['name']),
         ];
     }
 
     if (function_exists('load_transactions')) {
         $transactions = load_transactions();
-        $pending = array_filter($transactions, fn($t) => ($t['status'] ?? 'Pending') === 'Pending');
+        $pending = array_filter($transactions, fn($t) => ($t['status'] ?? 'pending') === 'pending');
         foreach ($pending as $t) {
             $notifs[] = [
                 'icon'      => 'bi-hourglass-split',
@@ -48,7 +48,7 @@ function maexx_get_notifications(): array
                 'title'     => 'Pending: ' . htmlspecialchars($t['reference'] ?? 'Order'),
                 'desc'      => htmlspecialchars(($t['customer_name'] ?? 'Customer') . ' — ' . ($t['product_name'] ?? 'Product')),
                 'time'      => htmlspecialchars(substr($t['timestamp'] ?? '', 0, 10)),
-                'link'      => 'sales.php',
+                'link'      => 'sales.php?highlight=' . urlencode($t['reference'] ?? ''),
             ];
         }
     }
@@ -164,6 +164,17 @@ function maexx_notif_css(): string
 .nb-foot a:hover { text-decoration: underline; }
 
 @media print { .nb-wrap { display: none !important; } }
+
+/* ===== NOTIFICATION HIGHLIGHT ===== */
+@keyframes notif-highlight {
+    0%   { background: #eff6ff; }
+    70%  { background: #eff6ff; }
+    100% { background: #f8fafc; }
+}
+tr.notif-hl {
+    animation: notif-highlight 3s ease-out forwards;
+    border-left: 3px solid #3b82f6 !important;
+}
 CSS;
 }
 
@@ -233,5 +244,57 @@ document.addEventListener('click', function(e) {
         dd.classList.remove('show');
     }
 });
+
+(function() {
+    var hl = new URLSearchParams(window.location.search).get('highlight');
+    if (!hl) return;
+    var target = null;
+    var page = window.location.pathname;
+
+    if (page.indexOf('inventory') !== -1 || page.indexOf('product_management') !== -1 || page.indexOf('user_management') !== -1) {
+        var rows = document.querySelectorAll('tr[data-name]');
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].getAttribute('data-name') === hl.toLowerCase()) {
+                target = rows[i]; break;
+            }
+        }
+    } else if (page.indexOf('sales') !== -1) {
+        var rows = document.querySelectorAll('tr[data-search]');
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].getAttribute('data-search').indexOf(hl.toLowerCase()) !== -1) {
+                target = rows[i]; break;
+            }
+        }
+        if (!target) {
+            var chips = document.querySelectorAll('.ref-chip');
+            for (var i = 0; i < chips.length; i++) {
+                if (chips[i].textContent.trim() === hl) {
+                    target = chips[i].closest('tr'); break;
+                }
+            }
+        }
+    }
+
+    if (target) {
+        function doHighlight() {
+            if (typeof filteredRows !== 'undefined' && typeof ROWS_PER_PAGE !== 'undefined' && typeof renderPage === 'function') {
+                var idx = filteredRows.indexOf(target);
+                if (idx !== -1) {
+                    currentPage = Math.floor(idx / ROWS_PER_PAGE) + 1;
+                    renderPage();
+                } else {
+                    target.style.display = '';
+                }
+            }
+            target.classList.add('notif-hl');
+            target.scrollIntoView({behavior: 'smooth', block: 'center'});
+        }
+        if (document.readyState === 'complete') {
+            setTimeout(doHighlight, 300);
+        } else {
+            window.addEventListener('load', function() { setTimeout(doHighlight, 200); });
+        }
+    }
+})();
 JS;
 }

@@ -87,6 +87,29 @@ foreach ($filtered as $t) {
 }
 ksort($salesByDay);
 
+// Daily summary (for monthly print breakdown)
+$dailySummary = [];
+foreach ($filtered as $t) {
+    $day = substr($t['timestamp'] ?? '', 0, 10);
+    if (!isset($dailySummary[$day])) $dailySummary[$day] = ['revenue' => 0, 'qty' => 0, 'count' => 0];
+    $dailySummary[$day]['revenue'] += floatval($t['total']);
+    $dailySummary[$day]['qty'] += intval($t['quantity']);
+    $dailySummary[$day]['count']++;
+}
+ksort($dailySummary);
+
+// Monthly summary (for yearly print breakdown)
+$monthlySummary = [];
+foreach ($filtered as $t) {
+    $mk = date('Y-m', strtotime($t['timestamp'] ?? ''));
+    $ml = date('F Y', strtotime($t['timestamp'] ?? ''));
+    if (!isset($monthlySummary[$mk])) $monthlySummary[$mk] = ['label' => $ml, 'revenue' => 0, 'qty' => 0, 'count' => 0];
+    $monthlySummary[$mk]['revenue'] += floatval($t['total']);
+    $monthlySummary[$mk]['qty'] += intval($t['quantity']);
+    $monthlySummary[$mk]['count']++;
+}
+ksort($monthlySummary);
+
 /* ===== INVENTORY REPORT DATA ===== */
 $lowStock   = array_values(array_filter($activeProducts, fn($p) => $p['stock'] < $p['threshold'] && $p['stock'] > 0));
 $outOfStock = array_values(array_filter($activeProducts, fn($p) => $p['stock'] == 0));
@@ -278,7 +301,7 @@ tbody tr:last-child td { border-bottom:none; }
             <p>Generate, view, and export inventory and sales reports</p>
         </div>
         <div class="topbar-right">
-            <button class="btn-print" onclick="window.print()">
+            <button class="btn-print" onclick="printCurrentReport()">
                 <i class="bi bi-printer"></i> Print Report
             </button>
             <button class="btn-export" onclick="exportCSV()">
@@ -457,7 +480,7 @@ tbody tr:last-child td { border-bottom:none; }
             </div>
             <?php else: ?>
             <div style="overflow-x:auto;">
-                <table>
+                <table id="salesReportTable">
                     <thead>
                         <tr>
                             <th>#</th>
@@ -583,7 +606,7 @@ tbody tr:last-child td { border-bottom:none; }
                 </div>
                 <?php else: ?>
                 <div style="overflow-x:auto;">
-                    <table>
+                    <table id="stockAlertsTable">
                         <thead>
                             <tr><th>Product</th><th>Category</th><th>Current Stock</th><th>Min Level</th><th>Status</th></tr>
                         </thead>
@@ -623,7 +646,7 @@ tbody tr:last-child td { border-bottom:none; }
                 </div>
             </div>
             <div style="overflow-x:auto;">
-                <table>
+                <table id="inventoryReportTable">
                     <thead>
                         <tr>
                             <th>#</th>
@@ -716,6 +739,236 @@ function exportCSV() {
     a.download = filename.replace(/[^a-z0-9_\-.]/gi, '_');
     a.click();
     URL.revokeObjectURL(url);
+}
+
+const rptData = {
+    type: <?= json_encode($reportType) ?>,
+    period: <?= json_encode($period) ?>,
+    label: <?= json_encode($label) ?>,
+    totalRevenue: <?= json_encode($totalRevenue) ?>,
+    totalQty: <?= json_encode($totalQty) ?>,
+    txCount: <?= json_encode($txCount) ?>,
+    deliveredCount: <?= json_encode(count($delivered)) ?>,
+    pendingCount: <?= json_encode(count($pending)) ?>,
+    topProducts: <?= json_encode($topProducts, JSON_FORCE_OBJECT) ?>,
+    dailySummary: <?= json_encode($dailySummary, JSON_FORCE_OBJECT) ?>,
+    monthlySummary: <?= json_encode(array_values($monthlySummary)) ?>,
+    activeCount: <?= json_encode(count($activeProducts)) ?>,
+    inStockCount: <?= json_encode(count($inStock)) ?>,
+    lowStockCount: <?= json_encode(count($lowStock)) ?>,
+    outOfStockCount: <?= json_encode(count($outOfStock)) ?>,
+    totalStockValue: <?= json_encode($totalStockValue) ?>
+};
+
+function printCurrentReport() {
+    const d = rptData;
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'});
+    const timeStr = now.toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit'});
+    const preparedBy = document.querySelector('.user-info .name')?.textContent || 'Administrator';
+
+    let title;
+    if (d.type === 'sales') {
+        if (d.period === 'daily') title = 'DAILY SALES REPORT';
+        else if (d.period === 'monthly') title = 'MONTHLY SALES REPORT';
+        else title = 'ANNUAL SALES REPORT';
+    } else {
+        title = 'INVENTORY STATUS REPORT';
+    }
+
+    let stats;
+    if (d.type === 'sales') {
+        stats = [
+            {label:'Total Revenue', value:'₱'+Number(d.totalRevenue).toLocaleString('en-US',{minimumFractionDigits:2}), color:'#3b82f6'},
+            {label:'Transactions', value:d.txCount, color:'#22c55e'},
+            {label:'Qty Sold', value:Number(d.totalQty).toLocaleString(), color:'#f59e0b'},
+            {label:'Delivered', value:d.deliveredCount, color:'#16a34a'},
+            {label:'Pending', value:d.pendingCount, color:'#ef4444'}
+        ];
+    } else {
+        stats = [
+            {label:'Active Products', value:d.activeCount, color:'#3b82f6'},
+            {label:'In Stock', value:d.inStockCount, color:'#22c55e'},
+            {label:'Low Stock', value:d.lowStockCount, color:'#f59e0b'},
+            {label:'Out of Stock', value:d.outOfStockCount, color:'#ef4444'},
+            {label:'Est. Stock Value', value:'₱'+Number(d.totalStockValue).toLocaleString('en-US',{minimumFractionDigits:2}), color:'#7c3aed'}
+        ];
+    }
+
+    let statsHtml = '<div style="display:flex;gap:10px;margin-bottom:22px;">';
+    stats.forEach(s => {
+        statsHtml += '<div style="flex:1;border:2px solid '+s.color+';border-radius:10px;padding:12px 10px;text-align:center;">'
+            +'<div style="font-size:18px;font-weight:800;color:'+s.color+';">'+s.value+'</div>'
+            +'<div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-top:3px;">'+s.label+'</div>'
+            +'</div>';
+    });
+    statsHtml += '</div>';
+
+    let breakdownHtml = '';
+    if (d.type === 'sales') {
+        if (d.period === 'monthly' && Object.keys(d.dailySummary).length > 0) {
+            breakdownHtml += '<div style="margin-bottom:22px;">'
+                +'<div class="section-title">Daily Sales Breakdown</div>'
+                +'<table><thead><tr><th>Date</th><th style="text-align:center;">Transactions</th><th style="text-align:center;">Qty Sold</th><th style="text-align:right;">Revenue</th></tr></thead><tbody>';
+            let tR=0,tT=0,tQ=0;
+            Object.entries(d.dailySummary).forEach(([date, info]) => {
+                tR+=info.revenue; tT+=info.count; tQ+=info.qty;
+                const dt = new Date(date+'T00:00:00');
+                breakdownHtml += '<tr>'
+                    +'<td>'+dt.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})+'</td>'
+                    +'<td style="text-align:center;">'+info.count+'</td>'
+                    +'<td style="text-align:center;">'+Number(info.qty).toLocaleString()+'</td>'
+                    +'<td style="text-align:right;font-weight:600;">₱'+Number(info.revenue).toLocaleString('en-US',{minimumFractionDigits:2})+'</td>'
+                    +'</tr>';
+            });
+            breakdownHtml += '</tbody><tfoot><tr>'
+                +'<td style="font-weight:700;">TOTAL</td>'
+                +'<td style="text-align:center;font-weight:700;">'+tT+'</td>'
+                +'<td style="text-align:center;font-weight:700;">'+Number(tQ).toLocaleString()+'</td>'
+                +'<td style="text-align:right;font-weight:700;">₱'+Number(tR).toLocaleString('en-US',{minimumFractionDigits:2})+'</td>'
+                +'</tr></tfoot></table></div>';
+        }
+
+        if (d.period === 'yearly' && d.monthlySummary.length > 0) {
+            breakdownHtml += '<div style="margin-bottom:22px;">'
+                +'<div class="section-title">Monthly Sales Breakdown</div>'
+                +'<table><thead><tr><th>Month</th><th style="text-align:center;">Transactions</th><th style="text-align:center;">Qty Sold</th><th style="text-align:right;">Revenue</th></tr></thead><tbody>';
+            let tR=0,tT=0,tQ=0;
+            d.monthlySummary.forEach(m => {
+                tR+=m.revenue; tT+=m.count; tQ+=m.qty;
+                breakdownHtml += '<tr>'
+                    +'<td>'+m.label+'</td>'
+                    +'<td style="text-align:center;">'+m.count+'</td>'
+                    +'<td style="text-align:center;">'+Number(m.qty).toLocaleString()+'</td>'
+                    +'<td style="text-align:right;font-weight:600;">₱'+Number(m.revenue).toLocaleString('en-US',{minimumFractionDigits:2})+'</td>'
+                    +'</tr>';
+            });
+            breakdownHtml += '</tbody><tfoot><tr>'
+                +'<td style="font-weight:700;">TOTAL</td>'
+                +'<td style="text-align:center;font-weight:700;">'+tT+'</td>'
+                +'<td style="text-align:center;font-weight:700;">'+Number(tQ).toLocaleString()+'</td>'
+                +'<td style="text-align:right;font-weight:700;">₱'+Number(tR).toLocaleString('en-US',{minimumFractionDigits:2})+'</td>'
+                +'</tr></tfoot></table></div>';
+        }
+
+        if (d.period !== 'daily' && Object.keys(d.topProducts).length > 0) {
+            breakdownHtml += '<div style="margin-bottom:22px;">'
+                +'<div class="section-title">Top Products by Quantity Sold</div>'
+                +'<table><thead><tr><th style="width:40px;">#</th><th>Product Name</th><th style="text-align:right;">Qty Sold</th></tr></thead><tbody>';
+            let rank = 1;
+            Object.entries(d.topProducts).forEach(([name, qty]) => {
+                breakdownHtml += '<tr>'
+                    +'<td style="color:#94a3b8;">'+rank+++'</td>'
+                    +'<td style="font-weight:600;">'+name+'</td>'
+                    +'<td style="text-align:right;">'+Number(qty).toLocaleString()+' units</td>'
+                    +'</tr>';
+            });
+            breakdownHtml += '</tbody></table></div>';
+        }
+    }
+
+    let tableHtml = '';
+    if (d.type === 'sales') {
+        const tbl = document.getElementById('salesReportTable');
+        if (tbl) {
+            const c = tbl.cloneNode(true);
+            c.removeAttribute('id');
+            c.querySelectorAll('.no-print,.action-col').forEach(el => el.remove());
+            tableHtml = '<div style="margin-bottom:20px;">'
+                +'<div class="section-title">Transaction Details</div>'
+                +c.outerHTML+'</div>';
+        }
+    } else {
+        const alertsTbl = document.getElementById('stockAlertsTable');
+        if (alertsTbl) {
+            const c = alertsTbl.cloneNode(true);
+            c.removeAttribute('id');
+            c.querySelectorAll('.no-print,.action-col').forEach(el => el.remove());
+            tableHtml += '<div style="margin-bottom:20px;">'
+                +'<div class="section-title">Stock Alerts</div>'
+                +c.outerHTML+'</div>';
+        }
+        const invTbl = document.getElementById('inventoryReportTable');
+        if (invTbl) {
+            const c = invTbl.cloneNode(true);
+            c.removeAttribute('id');
+            c.querySelectorAll('.no-print,.action-col').forEach(el => el.remove());
+            tableHtml += '<div style="margin-bottom:20px;">'
+                +'<div class="section-title">Complete Inventory List</div>'
+                +c.outerHTML+'</div>';
+        }
+    }
+
+    const html = '<!DOCTYPE html>'
++'<html><head>'
++'<meta charset="UTF-8">'
++'<title>'+title+' - MAEXX2 Enterprises</title>'
++'<style>'
++'@page { size: A4 portrait; margin: 15mm 12mm; }'
++'* { box-sizing:border-box; margin:0; padding:0; }'
++'body { font-family: Arial, "Helvetica Neue", sans-serif; font-size:11px; color:#1e293b; padding:0; }'
++'.header { margin-bottom:16px; }'
++'.header-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; }'
++'.company-name { font-size:20px; font-weight:800; color:#243f5f; margin-bottom:4px; letter-spacing:-0.5px; }'
++'.company-details { font-size:9px; color:#64748b; line-height:1.7; }'
++'.logo { width:70px; height:70px; object-fit:contain; }'
++'.sep { border:none; border-top:3px solid #243f5f; margin:10px 0; }'
++'.meta-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }'
++'.meta { font-size:10px; color:#475569; }'
++'.meta strong { color:#1e293b; }'
++'.report-title { font-size:16px; font-weight:800; color:#243f5f; text-transform:uppercase; margin:10px 0 6px; letter-spacing:0.5px; border-bottom:2px solid #e2e8f0; padding-bottom:8px; }'
++'.period-tag { display:inline-block; background:#eff6ff; color:#1d4ed8; padding:4px 14px; border-radius:999px; font-size:10px; font-weight:700; margin-bottom:16px; }'
++'.section-title { font-size:12px; font-weight:700; color:#243f5f; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px; padding-bottom:4px; border-bottom:1px solid #e2e8f0; }'
++'table { width:100%; border-collapse:collapse; margin-bottom:16px; font-size:10px; }'
++'th { background:#243f5f; color:#fff; font-size:8px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; padding:8px 8px; text-align:left; }'
++'td { padding:6px 8px; border-bottom:1px solid #e2e8f0; color:#475569; }'
++'tr:nth-child(even) { background:#f8fafc; }'
++'tfoot td { font-weight:700; border-top:2px solid #243f5f; background:#f1f5f9; color:#1e293b; }'
++'.badge-status { display:inline-block; padding:2px 8px; border-radius:999px; font-size:9px; font-weight:700; }'
++'.bs-delivered { background:#dcfce7; color:#166534; }'
++'.bs-pending { background:#fef9c3; color:#854d0e; }'
++'.bs-ok { background:#dcfce7; color:#166534; }'
++'.bs-low { background:#fef9c3; color:#854d0e; }'
++'.bs-out { background:#fee2e2; color:#991b1b; }'
++'.ref-chip { font-family:monospace; background:#eff6ff; color:#1d4ed8; padding:2px 6px; border-radius:4px; font-size:9px; font-weight:700; }'
++'.footer { margin-top:50px; page-break-inside:avoid; }'
++'.prepared { font-size:10px; color:#64748b; }'
++'.sig-line { width:220px; border-top:2px solid #243f5f; margin-top:40px; padding-top:6px; font-size:11px; font-weight:700; color:#243f5f; }'
++'</style>'
++'</head><body>'
++'<div class="header">'
++'<div class="header-top">'
++'<div>'
++'<div class="company-name">MAEXX2 ENTERPRISES INC.</div>'
++'<div class="company-details">'
++'Inventory &amp; Sales Monitoring System<br>'
++'<strong>Email:</strong> maexx2enterprises@gmail.com<br>'
++'<strong>Generated:</strong> '+dateStr+' at '+timeStr
++'</div></div>'
++'<img src="img/LOGO.png" class="logo" onerror="this.style.display=\'none\'">'
++'</div>'
++'<hr class="sep">'
++'<div class="meta-row">'
++'<span class="meta"><strong>DATE:</strong> '+dateStr+'</span>'
++'<span class="meta"><strong>PERIOD:</strong> '+d.label+'</span>'
++'</div>'
++'<div class="report-title">'+title+'</div>'
++'<span class="period-tag">'+d.period.charAt(0).toUpperCase()+d.period.slice(1)+' Report &mdash; '+d.label+'</span>'
++'</div>'
++statsHtml
++breakdownHtml
++tableHtml
++'<div class="footer">'
++'<div class="prepared">Prepared by:</div>'
++'<div class="sig-line">'+preparedBy+'</div>'
++'</div>'
++'<script>window.onload=function(){window.print();}<\/script>'
++'</body></html>';
+
+    const w = window.open('', '_blank');
+    if (!w) { alert('Please allow popups for this site to print the report.'); return; }
+    w.document.write(html);
+    w.document.close();
 }
 </script>
 <script><?= maexx_print_js() ?></script>

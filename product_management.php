@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             update_product($id, $v['name'], $v['price'], $v['cost'], $v['threshold'], $v['category'], $v['unit'], $v['description']);
             set_flash('Product "' . $v['name'] . '" updated successfully.', 'success');
         }
-        header('Location: product_management.php'); exit;
+        header('Location: product_management.php?highlight=' . urlencode($v['name'])); exit;
     }
 
     if ($action === 'archive') {

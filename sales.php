@@ -709,11 +709,7 @@ function openDeliverModal(tx) {
         `Order: ${tx.reference} — ${tx.customer_name} | ${tx.quantity} x ${tx.product_name}`;
 
     // A delivery cannot happen before the order was placed.
-    const orderDate = (tx.timestamp || '').slice(0, 10);
-    const now = new Date();
-    const today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
-    document.getElementById('deliverDate').min = orderDate;
-    document.getElementById('deliverDate').value = today;
+    document.getElementById('deliverDate').min = (tx.timestamp || '').slice(0, 10);
 
     deliveryGuard.load({
         ordered: tx.quantity,

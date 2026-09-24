@@ -29,6 +29,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ? create_user($v['fullname'], $v['username'], $v['password'], $v['role'])
                 : update_user($userId, $v['fullname'], $v['username'], $v['role'], $v['password'] !== '' ? $v['password'] : null);
             set_flash($result['message'], $result['success'] ? 'success' : 'danger');
+            if ($result['success']) {
+                header('Location: user_management.php?highlight=' . urlencode($v['fullname'])); exit;
+            }
         }
         header('Location: user_management.php'); exit;
     }
@@ -47,6 +50,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $result = deactivate_user($userId);
             set_flash($result['success'] ? "{$v['user']['name']} has been deactivated." : $result['message'],
                       $result['success'] ? 'success' : 'danger');
+            if ($result['success']) {
+                header('Location: user_management.php?highlight=' . urlencode($v['user']['name'])); exit;
+            }
         }
         header('Location: user_management.php'); exit;
     }
@@ -60,6 +66,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $result = reactivate_user($userId);
             set_flash($result['success'] ? "{$v['user']['name']} has been reactivated." : $result['message'],
                       $result['success'] ? 'success' : 'danger');
+            if ($result['success']) {
+                header('Location: user_management.php?highlight=' . urlencode($v['user']['name'])); exit;
+            }
         }
         header('Location: user_management.php'); exit;
     }
