@@ -56,6 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]);
                 add_activity_log("Sale {$refNo}: {$customerName} ordered {$quantity}x {$product['name']} — ₱" . number_format($total, 2));
                 set_flash("Order {$refNo} recorded successfully! Marked as Pending Delivery.", 'success');
+                header('Location: sales.php?highlight=' . urlencode($refNo)); exit;
             } else {
                 set_flash($result['message'], 'danger');
             }
@@ -110,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             set_flash("Order {$txRef} marked as Delivered.", 'success');
         }
 
-        header('Location: sales.php'); exit;
+        header('Location: sales.php?highlight=' . urlencode($txRef)); exit;
     }
 }
 
