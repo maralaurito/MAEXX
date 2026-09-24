@@ -1,0 +1,44 @@
+[
+    {
+        "id": 1,
+        "name": "Administrator",
+        "username": "admin@gmail.com",
+        "email": "kashena123456@gmail.com",
+        "password": "$2y$10$MWV4qaPPpA6vjPo49Fw9mOsYnhTZD2IHDkqaossISYZTUMA/SLkTq",
+        "role": "Administrator",
+        "status": "active",
+        "created_at": "2026-08-09",
+        "avatar": "img/avatars/avatar_1.png"
+    },
+    {
+        "id": 2,
+        "name": "Product Inventory",
+        "username": "productinventory@gmail.com",
+        "email": "inventory@example.com",
+        "password": "$2y$10$K.TqiLL/BVGp1nXSwhYVqO40wb0yrkKWhj5Gq4/a8zr7D63T50pvO",
+        "role": "Product Inventory",
+        "status": "active",
+        "created_at": "2026-08-09",
+        "avatar": "img/avatars/avatar_2.jpg"
+    },
+    {
+        "id": 3,
+        "name": "Maria Db",
+        "username": "maria",
+        "email": "maria@gmail.com",
+        "password": "$2y$10$Fa9q7M6Z6/UVlF5b1PrFCuuApBpapwquAA.vfHnqa7yd4iL2RBtTW",
+        "role": "Product Inventory",
+        "status": "inactive",
+        "created_at": "2026-08-09"
+    },
+    {
+        "id": 4,
+        "name": "Staff",
+        "username": "staff123@gmail.com",
+        "email": "staff123@gmail.com",
+        "password": "$2y$10$ap7TSUwxDWHbmoUf6j.PqO7Z5W0aQW29pOXiBlEA7CvFjZInXWpF2",
+        "role": "Product Inventory",
+        "status": "inactive",
+        "created_at": "2026-09-15"
+    }
+]

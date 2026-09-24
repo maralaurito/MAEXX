@@ -1,0 +1,142 @@
+[
+    {
+        "timestamp": "2026-09-19 11:45:36",
+        "user": "kashena123456@gmail.com",
+        "message": "Stock Out processed for Sealer Tape (7 units). Current stock: 1"
+    },
+    {
+        "timestamp": "2026-09-19 13:40:31",
+        "user": "kashena123456@gmail.com",
+        "message": "Signed in: admin"
+    },
+    {
+        "timestamp": "2026-09-19 13:43:19",
+        "user": "kashena123456@gmail.com",
+        "message": "User status changed for maria to active"
+    },
+    {
+        "timestamp": "2026-09-19 13:43:34",
+        "user": "kashena123456@gmail.com",
+        "message": "User status changed for maria to inactive"
+    },
+    {
+        "timestamp": "2026-09-19 13:44:46",
+        "user": "system",
+        "message": "Password reset requested by admin (code email: failed, admin notice: failed)"
+    },
+    {
+        "timestamp": "2026-09-20 18:10:19",
+        "user": "kashena123456@gmail.com",
+        "message": "Signed in: admin"
+    },
+    {
+        "timestamp": "2026-09-20 18:53:28",
+        "user": "kashena123456@gmail.com",
+        "message": "Signed in: admin"
+    },
+    {
+        "timestamp": "2026-09-20 19:58:22",
+        "user": "kashena123456@gmail.com",
+        "message": "Signed in: admin"
+    },
+    {
+        "timestamp": "2026-09-20 19:59:31",
+        "user": "staff123@gmail.com",
+        "message": "Signed in: staff123@gmail.com"
+    },
+    {
+        "timestamp": "2026-09-21 19:37:51",
+        "user": "kashena123456@gmail.com",
+        "message": "Signed in: admin"
+    },
+    {
+        "timestamp": "2026-09-21 19:38:27",
+        "user": "kashena123456@gmail.com",
+        "message": "Signed in: admin"
+    },
+    {
+        "timestamp": "2026-09-21 19:57:06",
+        "user": "kashena123456@gmail.com",
+        "message": "Profile updated: Administrator (admin)"
+    },
+    {
+        "timestamp": "2026-09-21 20:02:20",
+        "user": "kashena123456@gmail.com",
+        "message": "Signed in: admin"
+    },
+    {
+        "timestamp": "2026-09-21 20:06:01",
+        "user": "kashena123456@gmail.com",
+        "message": "User updated: Administrator (admin@gmail.com)"
+    },
+    {
+        "timestamp": "2026-09-21 20:06:18",
+        "user": "kashena123456@gmail.com",
+        "message": "Signed in: admin@gmail.com"
+    },
+    {
+        "timestamp": "2026-09-21 20:20:05",
+        "user": "kashena123456@gmail.com",
+        "message": "User updated: Product Inventory (productinventory@gmail.com)"
+    },
+    {
+        "timestamp": "2026-09-21 20:21:25",
+        "user": "kashena123456@gmail.com",
+        "message": "User updated: Administrator (admin@gmail.com)"
+    },
+    {
+        "timestamp": "2026-09-21 20:22:15",
+        "user": "kashena123456@gmail.com",
+        "message": "User status changed for staff123@gmail.com to inactive"
+    },
+    {
+        "timestamp": "2026-09-21 20:25:54",
+        "user": "kashena123456@gmail.com",
+        "message": "Signed in: admin@gmail.com"
+    },
+    {
+        "timestamp": "2026-09-21 20:35:12",
+        "user": "kashena123456@gmail.com",
+        "message": "User updated: Product Inventory (productinventory@gmail.com)"
+    },
+    {
+        "timestamp": "2026-09-21 20:35:39",
+        "user": "inventory@example.com",
+        "message": "Signed in: productinventory@gmail.com"
+    },
+    {
+        "timestamp": "2026-09-21 20:36:55",
+        "user": "inventory@example.com",
+        "message": "Profile updated: Product Inventory (productinventory@gmail.com)"
+    },
+    {
+        "timestamp": "2026-09-21 20:59:57",
+        "user": "kashena123456@gmail.com",
+        "message": "Signed in: admin@gmail.com"
+    },
+    {
+        "timestamp": "2026-09-21 21:05:21",
+        "user": "system",
+        "message": "Password reset requested by admin@gmail.com (code email: failed, admin notice: failed)"
+    },
+    {
+        "timestamp": "2026-09-21 21:06:05",
+        "user": "kashena123456@gmail.com",
+        "message": "Signed in: admin@gmail.com"
+    },
+    {
+        "timestamp": "2026-09-22 07:13:38",
+        "user": "inventory@example.com",
+        "message": "Signed in: productinventory@gmail.com"
+    },
+    {
+        "timestamp": "2026-09-22 07:26:36",
+        "user": "kashena123456@gmail.com",
+        "message": "Signed in: admin@gmail.com"
+    },
+    {
+        "timestamp": "2026-09-22 07:27:50",
+        "user": "kashena123456@gmail.com",
+        "message": "Signed in: admin@gmail.com"
+    }
+]

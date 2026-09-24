@@ -1,0 +1,97 @@
+[
+    {
+        "id": 3,
+        "name": "Accessory C",
+        "stock": 120,
+        "threshold": 20,
+        "price": 8.75,
+        "cost": 100,
+        "category": "General",
+        "unit": "pcs",
+        "archived": true
+    },
+    {
+        "id": 4,
+        "name": "Plywood",
+        "price": 0,
+        "cost": 0,
+        "stock": 272,
+        "threshold": 20,
+        "category": "Construction",
+        "unit": "pcs",
+        "description": "Long hard thing",
+        "archived": false
+    },
+    {
+        "id": 5,
+        "name": "Sealer Tape",
+        "price": 25,
+        "cost": 18,
+        "stock": 1,
+        "threshold": 10,
+        "category": "Tapes",
+        "unit": "Roll",
+        "description": "Adhesive sealing tape for packaging",
+        "archived": false
+    },
+    {
+        "id": 6,
+        "name": "Chinese Brush",
+        "price": 15,
+        "cost": 8,
+        "stock": 140,
+        "threshold": 50,
+        "category": "General Supplies",
+        "unit": "Pcs",
+        "description": "Multi-purpose cleaning brush",
+        "archived": false
+    },
+    {
+        "id": 7,
+        "name": "Safety Goggles Black Handle",
+        "price": 75,
+        "cost": 45,
+        "stock": 25,
+        "threshold": 10,
+        "category": "PPE",
+        "unit": "Pcs",
+        "description": "Protective eyewear for workers",
+        "archived": false
+    },
+    {
+        "id": 8,
+        "name": "KN95 Face Mask",
+        "price": 8,
+        "cost": 3.5,
+        "stock": 7000,
+        "threshold": 500,
+        "category": "PPE",
+        "unit": "Pcs",
+        "description": "Protective KN95 face mask",
+        "archived": false
+    },
+    {
+        "id": 9,
+        "name": "Kimtech Wipes",
+        "price": 420,
+        "cost": 280,
+        "stock": 10,
+        "threshold": 5,
+        "category": "Cleanroom",
+        "unit": "Box",
+        "description": "Lint-free cleanroom wiping cloth",
+        "archived": false
+    },
+    {
+        "id": 10,
+        "name": "Tornado Mop",
+        "price": 199,
+        "cost": 120,
+        "stock": 0,
+        "threshold": 10,
+        "category": "Janitorial",
+        "unit": "Pcs",
+        "description": "Spin mop for floor cleaning",
+        "archived": false
+    }
+]

@@ -1,0 +1,65 @@
+[
+    {
+        "product_id": 3,
+        "product_name": "Accessory C",
+        "quantity": 1,
+        "total": 8.75,
+        "processed_by": "coco@gmail.com",
+        "timestamp": "2026-05-06 14:44:14"
+    },
+    {
+        "product_id": 3,
+        "product_name": "Accessory C",
+        "quantity": 1,
+        "total": 8.75,
+        "processed_by": "admin@123.com",
+        "timestamp": "2026-05-06 14:46:12"
+    },
+    {
+        "reference": "SALE-20260507-6E9C9",
+        "customer_name": "Maria Db",
+        "product_id": 3,
+        "product_name": "Accessory C",
+        "quantity": 2,
+        "unit_price": 8.75,
+        "total": 17.5,
+        "processed_by": "admin@123.com",
+        "timestamp": "2026-05-07 08:03:33"
+    },
+    {
+        "reference": "SO-20260915-6833B",
+        "customer_name": "Juan Reyes",
+        "po_number": "PO-2026-0901",
+        "product_id": 8,
+        "product_name": "KN95 Face Mask",
+        "quantity": 500,
+        "unit": "Pcs",
+        "unit_price": 8,
+        "total": 4000,
+        "status": "Delivered",
+        "notes": "Rush order for manufacturing plant",
+        "processed_by": "Administrator",
+        "timestamp": "2026-09-15 17:09:37",
+        "si_number": "SI-2026-0901",
+        "delivery_date": "2026-09-15",
+        "delivered_qty": 500
+    },
+    {
+        "reference": "SO-20260915-342CD",
+        "customer_name": "Metro Construction Corp.",
+        "po_number": "PO-2026-0902",
+        "product_id": 7,
+        "product_name": "Safety Goggles Black Handle",
+        "quantity": 10,
+        "unit": "Pcs",
+        "unit_price": 75,
+        "total": 750,
+        "status": "Delivered",
+        "notes": "Monthly PPE replenishment",
+        "processed_by": "Administrator",
+        "timestamp": "2026-09-15 17:10:32",
+        "si_number": "SI-2026-0902",
+        "delivery_date": "2026-09-15",
+        "delivered_qty": 10
+    }
+]

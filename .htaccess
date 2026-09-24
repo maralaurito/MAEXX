@@ -1,0 +1,16 @@
+# MAEXX — keep data and secrets off the web.
+#
+# The JSON "database" files, logs and mail credentials are read by PHP on
+# the server only. Without this, anyone who can reach the site could
+# download users.json (password hashes) or mail_debug.log (OTP codes).
+
+<FilesMatch "\.(json|log|bak)$">
+    Require all denied
+</FilesMatch>
+
+<Files "mail_secret.php">
+    Require all denied
+</Files>
+
+# No directory listings.
+Options -Indexes
