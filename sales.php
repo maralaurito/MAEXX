@@ -37,28 +37,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $total  = $product['price'] * $quantity;
             $refNo  = 'SO-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -5));
-            $result = adjust_stock($productId, $quantity, false);
-            if ($result['success']) {
-                save_transaction([
-                    'reference'     => $refNo,
-                    'customer_name' => $customerName,
-                    'po_number'     => $poNumber,
-                    'product_id'    => $productId,
-                    'product_name'  => $product['name'],
-                    'quantity'      => $quantity,
-                    'unit'          => $product['unit'] ?? 'pcs',
-                    'unit_price'    => $product['price'],
-                    'total'         => $total,
-                    'status'        => 'Pending',
-                    'notes'         => $notes,
-                    'processed_by'  => $user['name'],
-                    'timestamp'     => date('Y-m-d H:i:s'),
-                ]);
-                add_activity_log("Sale {$refNo}: {$customerName} ordered {$quantity}x {$product['name']} — ₱" . number_format($total, 2));
-                set_flash("Order {$refNo} recorded successfully! Marked as Pending Delivery.", 'success');
-                header('Location: sales.php?highlight=' . urlencode($refNo)); exit;
-            } else {
-                set_flash($result['message'], 'danger');
+            // One all-or-nothing unit: deduct stock AND save the order together.
+            // If anything fails, the stock deduction is undone too.
+            $pdo->beginTransaction();
+            try {
+                $result = adjust_stock($productId, $quantity, false);
+                if (!$result['success']) {
+                    $pdo->rollBack();
+                    set_flash($result['message'], 'danger');
+                } else {
+                    save_transaction([
+                        'reference'     => $refNo,
+                        'customer_name' => $customerName,
+                        'po_number'     => $poNumber,
+                        'product_id'    => $productId,
+                        'product_name'  => $product['name'],
+                        'quantity'      => $quantity,
+                        'unit'          => $product['unit'] ?? 'pcs',
+                        'unit_price'    => $product['price'],
+                        'total'         => $total,
+                        'status'        => 'Pending',
+                        'notes'         => $notes,
+                        'processed_by'  => $user['name'],
+                        'timestamp'     => date('Y-m-d H:i:s'),
+                    ]);
+                    add_activity_log("Sale {$refNo}: {$customerName} ordered {$quantity}x {$product['name']} — ₱" . number_format($total, 2));
+                    $pdo->commit();
+                    set_flash("Order {$refNo} recorded successfully! Marked as Pending Delivery.", 'success');
+                    header('Location: sales.php?highlight=' . urlencode($refNo)); exit;
+                }
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                set_flash('Order could not be saved. No stock was deducted.', 'danger');
             }
         }
         header('Location: sales.php'); exit;
@@ -86,16 +98,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $delDate = $details['date'];
 
-        update_transaction_status($txRef, 'Delivered', $siNum, $delDate, $delQty);
-
         $tx        = $check['tx'];
         $unit      = $tx['unit'] ?? 'pcs';
         $shortfall = $check['shortfall'];
 
+        // Mark delivered and return any shortfall to stock as ONE unit.
+        $pdo->beginTransaction();
+        try {
+            update_transaction_status($txRef, 'Delivered', $siNum, $delDate, $delQty);
+            $returned = $shortfall > 0
+                ? adjust_stock(intval($tx['product_id']), $shortfall, true)
+                : ['success' => true, 'message' => ''];
+            if (!$returned['success']) {
+                throw new RuntimeException($returned['message']);
+            }
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            set_flash('Delivery could not be saved: ' . $e->getMessage() . ' Nothing was changed.', 'danger');
+            header('Location: sales.php'); exit;
+        }
+
         if ($shortfall > 0) {
-            // These units were deducted when the order was recorded but never
-            // left the warehouse, so they go back on the shelf.
-            $returned = adjust_stock(intval($tx['product_id']), $shortfall, true);
 
             add_activity_log("Order {$txRef} partially delivered: {$delQty} of {$tx['quantity']} {$unit}. SI: {$siNum}. "
                 . ($returned['success'] ? "{$shortfall} {$unit} returned to stock." : 'Stock return failed: ' . $returned['message']));
@@ -113,6 +139,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         header('Location: sales.php?highlight=' . urlencode($txRef)); exit;
     }
+
+    if ($action === 'cancel_order') {
+        $txRef = trim($_POST['tx_ref'] ?? '');
+
+        $result = cancel_order($txRef);
+        set_flash($result['message'], $result['success'] ? 'success' : 'danger');
+        header('Location: sales.php'); exit;
+    }
 }
 
 $flash    = get_flash();
@@ -120,13 +154,16 @@ $products = load_products();
 $activeProducts = array_values(array_filter($products, fn($p) => empty($p['archived']) && $p['stock'] > 0));
 $allTransactions = load_transactions();
 $allTx   = array_reverse($allTransactions);
-$pending = array_values(array_filter($allTx, fn($t) => ($t['status'] ?? 'pending') === 'pending'));
+$pending   = array_values(array_filter($allTx, fn($t) => ($t['status'] ?? 'pending') === 'pending'));
 $delivered = array_values(array_filter($allTx, fn($t) => ($t['status'] ?? '') === 'delivered'));
+$cancelled = array_values(array_filter($allTx, fn($t) => ($t['status'] ?? '') === 'cancelled'));
 
 // Summary
 $thisMonth = date('Y-m');
-$monthSales = array_sum(array_column(array_filter($allTx, fn($t) => substr($t['timestamp'] ?? '', 0, 7) === $thisMonth), 'total'));
-$todaySales = array_sum(array_column(array_filter($allTx, fn($t) => substr($t['timestamp'] ?? '', 0, 10) === date('Y-m-d')), 'total'));
+// Cancelled orders never shipped, so they don't count as sales.
+$soldTx     = array_filter($allTx, fn($t) => ($t['status'] ?? '') !== 'cancelled');
+$monthSales = array_sum(array_column(array_filter($soldTx, fn($t) => substr($t['timestamp'] ?? '', 0, 7) === $thisMonth), 'total'));
+$todaySales = array_sum(array_column(array_filter($soldTx, fn($t) => substr($t['timestamp'] ?? '', 0, 10) === date('Y-m-d')), 'total'));
 
 $dashboardLink = $isAdmin ? 'dashboard_admin.php' : 'dashboard_inventory.php';
 ?>
@@ -225,6 +262,8 @@ tbody tr:last-child td { border-bottom:none; }
 .btn-deliver:hover { background:#bbf7d0; }
 .btn-view    { background:#eff6ff;color:#1d4ed8; }
 .btn-view:hover { background:#dbeafe; }
+.btn-cancel  { background:#fee2e2;color:#991b1b; }
+.btn-cancel:hover { background:#fecaca; }
 
 .modal-content { border:none;border-radius:20px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.15); }
 .modal-header  { padding:20px 24px;border:none; }
@@ -236,6 +275,8 @@ tbody tr:last-child td { border-bottom:none; }
 .header-primary .btn-close { filter:brightness(0) invert(1); }
 .header-green { background:linear-gradient(135deg,#16a34a,#15803d);color:#fff; }
 .header-green .btn-close { filter:brightness(0) invert(1); }
+.header-red { background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff; }
+.header-red .btn-close { filter:brightness(0) invert(1); }
 
 .flash-box { padding:12px 18px;border-radius:12px;margin-bottom:20px;font-size:13px;display:flex;align-items:center;gap:10px; }
 .flash-success { background:#f0fdf4;color:#166534;border:1px solid #bbf7d0; }
@@ -378,6 +419,10 @@ tbody tr:last-child td { border-bottom:none; }
                     <i class="bi bi-check-circle"></i> Delivered
                     <span class="tab-count"><?= count($delivered) ?></span>
                 </button>
+                <button class="tab-btn" onclick="switchTab('cancelled', this)">
+                    <i class="bi bi-x-circle"></i> Cancelled
+                    <span class="tab-count"><?= count($cancelled) ?></span>
+                </button>
             </div>
 
             <!-- SEARCH -->
@@ -432,6 +477,10 @@ tbody tr:last-child td { border-bottom:none; }
                                     onclick="openDeliverModal(<?= htmlspecialchars(json_encode($tx), ENT_QUOTES) ?>)">
                                     <i class="bi bi-check-circle"></i>
                                 </button>
+                                <button class="btn-sm-act btn-cancel" title="Cancel order"
+                                    onclick="cancelOrder(<?= htmlspecialchars(json_encode($tx), ENT_QUOTES) ?>)">
+                                    <i class="bi bi-x-circle"></i>
+                                </button>
                                 <?php endif; ?>
                             </td>
                         </tr>
@@ -478,6 +527,10 @@ tbody tr:last-child td { border-bottom:none; }
                                     onclick="openDeliverModal(<?= htmlspecialchars(json_encode($tx), ENT_QUOTES) ?>)">
                                     <i class="bi bi-check-circle"></i>
                                 </button>
+                                <button class="btn-sm-act btn-cancel" title="Cancel order"
+                                    onclick="cancelOrder(<?= htmlspecialchars(json_encode($tx), ENT_QUOTES) ?>)">
+                                    <i class="bi bi-x-circle"></i>
+                                </button>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -507,6 +560,33 @@ tbody tr:last-child td { border-bottom:none; }
                             <td style="white-space:nowrap;"><?= intval($tx['delivered_qty'] ?? $tx['quantity'] ?? 0) ?> <?= htmlspecialchars($tx['unit'] ?? '') ?></td>
                             <td style="font-weight:700;color:#22c55e;white-space:nowrap;">₱<?= number_format($tx['total'] ?? 0, 2) ?></td>
                             <td style="font-size:11px;white-space:nowrap;"><?= htmlspecialchars($tx['delivery_date'] ?? '—') ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- CANCELLED TAB -->
+            <div id="tab-cancelled" style="display:none;">
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr><th>Reference</th><th>Date</th><th>Customer</th><th>Product</th><th>Qty</th><th>Total</th></tr>
+                        </thead>
+                        <tbody>
+                        <?php if (empty($cancelled)): ?>
+                        <tr><td colspan="6" style="text-align:center;padding:40px;color:#94a3b8;">No cancelled orders.</td></tr>
+                        <?php else: ?>
+                        <?php foreach ($cancelled as $tx): ?>
+                        <tr>
+                            <td><span class="ref-chip"><?= htmlspecialchars($tx['reference'] ?? '—') ?></span></td>
+                            <td style="font-size:11px;white-space:nowrap;"><?= htmlspecialchars(substr($tx['timestamp'] ?? '—', 0, 16)) ?></td>
+                            <td class="col-customer" style="font-weight:600;color:#1e293b;" title="<?= htmlspecialchars($tx['customer_name'] ?? '') ?>"><?= htmlspecialchars($tx['customer_name'] ?? '—') ?></td>
+                            <td class="col-product" title="<?= htmlspecialchars($tx['product_name'] ?? '') ?>"><?= htmlspecialchars($tx['product_name'] ?? '—') ?></td>
+                            <td style="white-space:nowrap;"><?= intval($tx['quantity'] ?? 0) ?> <?= htmlspecialchars($tx['unit'] ?? '') ?></td>
+                            <td style="font-weight:700;color:#94a3b8;white-space:nowrap;text-decoration:line-through;">₱<?= number_format($tx['total'] ?? 0, 2) ?></td>
                         </tr>
                         <?php endforeach; ?>
                         <?php endif; ?>
@@ -591,6 +671,34 @@ tbody tr:last-child td { border-bottom:none; }
 </div>
 
 <!-- MARK DELIVERED MODAL -->
+<!-- CANCEL ORDER MODAL -->
+<div class="modal fade" id="cancelModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+        <div class="modal-content">
+            <div class="modal-header header-red">
+                <h5 class="modal-title"><i class="bi bi-x-circle me-2"></i>Cancel Order</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" id="cancelOrderForm">
+                <?= csrf_field() ?>
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="cancel_order">
+                    <input type="hidden" name="tx_ref" id="cancelOrderRef">
+                    <div style="background:#fef2f2;border-radius:12px;padding:14px;font-size:13px;color:#334155;">
+                        Cancel order <strong id="cancelOrderSummary"></strong>? The reserved stock will be returned to inventory.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light fw-semibold" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" style="background:#dc2626;color:#fff;border:none;border-radius:10px;padding:9px 20px;font-weight:600;cursor:pointer;font-family:'Poppins',sans-serif;display:inline-flex;align-items:center;gap:6px;">
+                        <i class="bi bi-x-circle"></i> Confirm Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="deliverModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered" style="max-width:460px;">
         <div class="modal-content">
@@ -658,9 +766,17 @@ StockGuard.attach({
 function switchTab(tab, btn) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    ['all','pending','delivered'].forEach(t => {
+    ['all','pending','delivered','cancelled'].forEach(t => {
         document.getElementById('tab-' + t).style.display = t === tab ? '' : 'none';
     });
+}
+
+function cancelOrder(tx) {
+    if (!tx || !tx.reference) return;
+    document.getElementById('cancelOrderRef').value = tx.reference;
+    document.getElementById('cancelOrderSummary').textContent =
+        `${tx.reference} — ${tx.customer_name} | ${tx.quantity} x ${tx.product_name}`;
+    new bootstrap.Modal(document.getElementById('cancelModal')).show();
 }
 
 function openOrderModal() { new bootstrap.Modal(document.getElementById('orderModal')).show(); }
@@ -708,9 +824,6 @@ function openDeliverModal(tx) {
     document.getElementById('deliverQty').value = tx.quantity || 0;
     document.getElementById('deliverSummary').textContent =
         `Order: ${tx.reference} — ${tx.customer_name} | ${tx.quantity} x ${tx.product_name}`;
-
-    // A delivery cannot happen before the order was placed.
-    document.getElementById('deliverDate').min = (tx.timestamp || '').slice(0, 10);
 
     deliveryGuard.load({
         ordered: tx.quantity,

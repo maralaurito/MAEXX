@@ -384,8 +384,10 @@ function validate_delivery_details(array $tx, string $siNumber, string $delivery
         return v_fail("SI number {$si} is already used on order {$dup['reference']}.", 'si_number');
     }
 
-    $orderDate = substr($tx['timestamp'] ?? '', 0, 10);
-    return v_date($deliveryDate, 'Delivery date', $orderDate !== '' ? $orderDate : null, 'the order date');
+    // Deliveries are often recorded after the fact (monitoring), so the date
+    // may be earlier than the day the order was encoded. Only future dates
+    // and invalid dates are rejected.
+    return v_date($deliveryDate, 'Delivery date');
 }
 
 // ===============================================================

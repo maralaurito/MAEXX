@@ -720,19 +720,24 @@ function adjust_stock(int $productId, int $quantity, bool $isInbound, string $da
 
     $userId = $_SESSION['user']['id'] ?? 0;
 
-    $pdo->beginTransaction();
+    // If the caller already opened a transaction (e.g. sales.php), join it and
+    // let the caller commit/rollback. Otherwise this function owns its own.
+    $ownsTx = !$pdo->inTransaction();
+    if ($ownsTx) {
+        $pdo->beginTransaction();
+    }
     try {
         $stmt = $pdo->prepare('SELECT product_id AS id, name, stock, threshold FROM products WHERE product_id=? FOR UPDATE');
         $stmt->execute([$productId]);
         $product = $stmt->fetch();
 
         if (!$product) {
-            $pdo->rollBack();
+            if ($ownsTx) { $pdo->rollBack(); }
             return ['success' => false, 'message' => 'Product not found.'];
         }
 
         if (!$isInbound && $quantity > $product['stock']) {
-            $pdo->rollBack();
+            if ($ownsTx) { $pdo->rollBack(); }
             return ['success' => false, 'message' => 'Insufficient stock available for this product.'];
         }
 
@@ -772,7 +777,9 @@ function adjust_stock(int $productId, int $quantity, bool $isInbound, string $da
                 ->execute([$quantity, $productId]);
         }
 
-        $pdo->commit();
+        if ($ownsTx) {
+            $pdo->commit();
+        }
 
         $product = find_product($productId);
         $action = $isInbound ? 'Stock In' : 'Stock Out';
@@ -786,7 +793,9 @@ function adjust_stock(int $productId, int $quantity, bool $isInbound, string $da
         return ['success' => true, 'message' => $message, 'alert' => $alert, 'product' => $product];
 
     } catch (PDOException $e) {
-        $pdo->rollBack();
+        if ($ownsTx && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         return ['success' => false, 'message' => 'Database error: ' . $e->getMessage()];
     }
 }
@@ -946,6 +955,43 @@ function mark_order_delivered(string $reference, string $siNumber, string $deliv
 
     add_activity_log("Order delivered: {$reference} ({$deliveredQty} units)");
     return true;
+}
+
+function cancel_order(string $reference): array
+{
+    global $pdo;
+
+    $stmt = $pdo->prepare(
+        "SELECT order_id, product_id, quantity FROM sales_orders WHERE reference = ? AND status = 'Pending'"
+    );
+    $stmt->execute([$reference]);
+    $order = $stmt->fetch();
+
+    if (!$order) {
+        return ['success' => false, 'message' => 'Order not found or no longer pending.'];
+    }
+
+    $pdo->beginTransaction();
+    try {
+        // Stock was deducted when the order was created; give it back.
+        $returned = adjust_stock(intval($order['product_id']), intval($order['quantity']), true);
+        if (!$returned['success']) {
+            throw new RuntimeException($returned['message']);
+        }
+
+        $pdo->prepare("UPDATE sales_orders SET status='Cancelled' WHERE order_id=?")
+            ->execute([$order['order_id']]);
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        return ['success' => false, 'message' => 'Could not cancel: ' . $e->getMessage()];
+    }
+
+    add_activity_log("Order {$reference} cancelled. {$order['quantity']} unit(s) returned to stock.");
+    return ['success' => true, 'message' => "Order {$reference} cancelled and stock returned."];
 }
 
 /* ===============================================================

@@ -64,9 +64,14 @@ $filtered = array_values(array_filter($transactions, function($t) use ($from, $t
 }));
 
 /* ===== SALES REPORT DATA ===== */
-$totalRevenue  = array_sum(array_column($filtered, 'total'));
-$totalQty      = array_sum(array_column($filtered, 'quantity'));
-$txCount       = count($filtered);
+// Cancelled orders never shipped and had their stock returned, so they
+// are excluded from revenue, quantity and transaction-count totals below.
+// (They still appear in the raw $filtered list for the CSV export.)
+$cancelled     = array_values(array_filter($filtered, fn($t) => ($t['status'] ?? '') === 'cancelled'));
+$countedTx     = array_values(array_filter($filtered, fn($t) => ($t['status'] ?? '') !== 'cancelled'));
+$totalRevenue  = array_sum(array_column($countedTx, 'total'));
+$totalQty      = array_sum(array_column($countedTx, 'quantity'));
+$txCount       = count($countedTx);
 $delivered     = array_values(array_filter($filtered, fn($t) => ($t['status'] ?? '') === 'delivered'));
 $pending       = array_values(array_filter($filtered, fn($t) => ($t['status'] ?? 'pending') === 'pending'));
 
@@ -238,6 +243,7 @@ tbody tr:last-child td { border-bottom:none; }
 .badge-status { display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;font-size:10px;font-weight:700; }
 .bs-delivered { background:#dcfce7;color:#166534; }
 .bs-pending   { background:#fef9c3;color:#854d0e; }
+.bs-cancelled { background:#fee2e2;color:#991b1b; }
 .bs-ok     { background:#dcfce7;color:#166534; }
 .bs-low    { background:#fef9c3;color:#854d0e; }
 .bs-out    { background:#fee2e2;color:#991b1b; }
@@ -499,9 +505,12 @@ tbody tr:last-child td { border-bottom:none; }
                     <tbody>
                     <?php $grandTotal = 0; $row = 1;
                     foreach ($filtered as $tx):
-                        $grandTotal += floatval($tx['total'] ?? 0);
                         $status = $tx['status'] ?? 'pending';
-                        $sc = $status === 'delivered' ? 'bs-delivered' : 'bs-pending';
+                        // Cancelled orders never shipped, so they don't add to the grand total.
+                        if ($status !== 'cancelled') {
+                            $grandTotal += floatval($tx['total'] ?? 0);
+                        }
+                        $sc = $status === 'delivered' ? 'bs-delivered' : ($status === 'cancelled' ? 'bs-cancelled' : 'bs-pending');
                     ?>
                     <tr>
                         <td style="color:#94a3b8;font-size:11px;"><?= $row++ ?></td>
